@@ -6,6 +6,7 @@ from datetime import datetime
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import hashlib
+from functools import lru_cache
 from .telemetry import TelemetryClient
 from .git_integration import GitManager
 from .llm import LLMManager
@@ -30,7 +31,16 @@ class IbexWatcher:
         self.telemetry = TelemetryClient()
         self.git = GitManager(path)
         self.llm = LLMManager(path)
-        
+
+        # LRU Cache configuration
+        self._file_hash_cache = {}
+        self._file_content_cache = {}
+        self._git_status_cache = None
+        self._git_status_timestamp = None
+        self._state_cache = None
+        self._state_timestamp = None
+        self._cache_max_age = 30  # seconds
+
         # Create .ibex directory if it doesn't exist
         if not self.ibex_dir.exists():
             self.ibex_dir.mkdir()
@@ -39,7 +49,72 @@ class IbexWatcher:
                 'stakes': [],
                 'changes': []
             })
-    
+
+    def _is_cache_expired(self, timestamp: datetime) -> bool:
+        """Check if cache entry has expired"""
+        if timestamp is None:
+            return True
+        return (datetime.now() - timestamp).seconds > self._cache_max_age
+
+    def _invalidate_file_cache(self, file_path: str):
+        """Invalidate cache entries for a specific file"""
+        if file_path in self._file_hash_cache:
+            del self._file_hash_cache[file_path]
+        if file_path in self._file_content_cache:
+            del self._file_content_cache[file_path]
+
+    def _clear_expired_cache(self):
+        """Clear expired cache entries"""
+        # Git status cache
+        if self._git_status_timestamp and self._is_cache_expired(self._git_status_timestamp):
+            self._git_status_cache = None
+            self._git_status_timestamp = None
+
+        # State cache
+        if self._state_timestamp and self._is_cache_expired(self._state_timestamp):
+            self._state_cache = None
+            self._state_timestamp = None
+
+    def _get_cached_file_hash(self, file_path: str) -> str:
+        """Get cached file hash or compute and cache it"""
+        try:
+            # Check cache first
+            if file_path in self._file_hash_cache:
+                cache_entry = self._file_hash_cache[file_path]
+                if not self._is_cache_expired(cache_entry['timestamp']):
+                    return cache_entry['hash']
+
+            # Compute hash
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            file_hash = hashlib.sha256(content.encode()).hexdigest()[:8]
+
+            # Cache the result
+            self._file_hash_cache[file_path] = {
+                'hash': file_hash,
+                'timestamp': datetime.now()
+            }
+
+            return file_hash
+
+        except (FileNotFoundError, UnicodeDecodeError):
+            # For binary files or missing files, return a special hash
+            return "binary"
+
+    def _get_cached_git_status(self):
+        """Get cached git status or fetch and cache it"""
+        self._clear_expired_cache()
+
+        if self._git_status_cache is not None and not self._is_cache_expired(self._git_status_timestamp):
+            return self._git_status_cache
+
+        # Fetch fresh git status
+        self._git_status_cache = self.git.get_uncommitted_changes()
+        self._git_status_timestamp = datetime.now()
+
+        return self._git_status_cache
+
     def start(self):
         """Start watching for changes"""
         try:
@@ -56,17 +131,17 @@ class IbexWatcher:
             self.observer.join()
     
     def handle_change(self, file_path: str):
-        """Handle a file change event"""
+        """Handle a file change event with caching"""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # Create simple hash of content
-            file_hash = hashlib.sha256(content.encode()).hexdigest()[:8]
-            
+            # Invalidate cache for this file
+            self._invalidate_file_cache(file_path)
+
+            # Get cached file hash
+            file_hash = self._get_cached_file_hash(file_path)
+
             # Get current state
             state = self.load_state()
-            
+
             # Record change
             change = {
                 'file': file_path,
@@ -74,41 +149,37 @@ class IbexWatcher:
                 'timestamp': datetime.now().isoformat(),
                 'summary': f"Changed {Path(file_path).name}"
             }
-            
-            # Only track files that are part of git repo
-            if file_path in self.git.get_uncommitted_changes():
+
+            # Only track files that are part of git repo (using cached git status)
+            git_changes = self._get_cached_git_status()
+            if file_path in git_changes:
                 state['changes'].append(change)
                 self.save_state(state)
                 self.telemetry.log_event("file_change", change)
-            
+
         except FileNotFoundError:
             print(f"File not found: {file_path}")
         except Exception as e:
             print(f"Error handling change: {e}")
     
     def detect_current_changes(self):
-        """Detect all current uncommitted changes and add them to the change log"""
+        """Detect all current uncommitted changes and add them to the change log with caching"""
         state = self.load_state()
-        
-        # Get all uncommitted changes from git
-        uncommitted_files = self.git.get_uncommitted_changes()
-        
+
+        # Get all uncommitted changes from git (using cached version)
+        uncommitted_files = self._get_cached_git_status()
+
         print(f"Detected {len(uncommitted_files)} uncommitted files")
-        
+
         for file_path in uncommitted_files:
             try:
                 # Check if this change is already tracked
                 already_tracked = any(change['file'] == file_path for change in state['changes'])
-                
+
                 if not already_tracked:
-                    # Read file content to create hash
-                    try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            content = f.read()
-                        file_hash = hashlib.sha256(content.encode()).hexdigest()[:8]
-                    except:
-                        file_hash = "binary"
-                    
+                    # Get cached file hash
+                    file_hash = self._get_cached_file_hash(file_path)
+
                     # Add change to state
                     change = {
                         'file': file_path,
@@ -116,13 +187,13 @@ class IbexWatcher:
                         'timestamp': datetime.now().isoformat(),
                         'summary': f"Changed {Path(file_path).name}"
                     }
-                    
+
                     state['changes'].append(change)
                     print(f"Added to change log: {file_path}")
-            
+
             except Exception as e:
                 print(f"Error processing {file_path}: {e}")
-        
+
         self.save_state(state)
         return len(state['changes'])
 
@@ -188,14 +259,31 @@ class IbexWatcher:
         self.telemetry.log_event("stake_created", stake)
     
     def save_state(self, state: dict):
-        """Save IBEX state to disk"""
+        """Save IBEX state to disk with cache invalidation"""
         with open(self.ibex_dir / 'state.json', 'w') as f:
             json.dump(state, f, indent=2)
-    
+
+        # Invalidate cache
+        self._state_cache = None
+        self._state_timestamp = None
+
     def load_state(self) -> dict:
-        """Load IBEX state from disk"""
+        """Load IBEX state from disk with caching"""
+        self._clear_expired_cache()
+
+        # Check cache first
+        if self._state_cache is not None and not self._is_cache_expired(self._state_timestamp):
+            return self._state_cache.copy()
+
+        # Load from disk
         try:
             with open(self.ibex_dir / 'state.json', 'r') as f:
-                return json.load(f)
+                state = json.load(f)
         except FileNotFoundError:
-            return {'intent': None, 'stakes': [], 'changes': []}
+            state = {'intent': None, 'stakes': [], 'changes': []}
+
+        # Cache the result
+        self._state_cache = state.copy()
+        self._state_timestamp = datetime.now()
+
+        return state
