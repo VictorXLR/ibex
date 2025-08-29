@@ -1,0 +1,10 @@
+typer>=0.9.0
+rich>=13.7.0
+watchdog>=3.0.0
+openai>=1.0.0
+anthropic>=0.30.0
+ollama>=0.3.0
+gitpython>=3.1.0
+flask>=2.0.0
+requests>=2.25.0
+aiohttp>=3.9.0
