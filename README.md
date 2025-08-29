@@ -213,36 +213,7 @@ When IBEX monitors itself, it provides:
 - **Automated Quality Checks**: Python linting, dependency checks, documentation validation
 - **Documentation Monitoring**: Ensures docs stay current with code changes
 
-### Launch TUI (Text User Interface)
 
-IBEX now includes a modern Text User Interface for an enhanced user experience:
-
-```bash
-# Launch TUI using the CLI
-python run_ibex.py tui
-
-# Or use the dedicated launcher
-python run_tui.py
-```
-
-The TUI provides:
-- **Dashboard**: Overview of current status, recent changes, and activity
-- **Stake Points**: Create and manage stake points with AI assistance
-- **AI Chat**: Interactive chat with your configured AI providers
-- **AI Configuration**: Manage AI providers and models
-- **History**: View semantic change history
-- **Self-Monitoring**: Analyze IBEX's own codebase quality
-- **Telemetry**: View development insights and analytics
-
-**Keyboard Shortcuts:**
-- `d` - Dashboard
-- `s` - Stake Points
-- `c` - AI Chat
-- `a` - AI Configuration
-- `h` - History
-- `m` - Self-Monitoring
-- `t` - Telemetry
-- `q` - Quit
 
 **Chat Features:**
 - Enter to send messages
@@ -252,7 +223,7 @@ The TUI provides:
 - Enhanced error handling with diagnostics
 
 **Chat Troubleshooting:**
-If chat isn't working in TUI:
+If chat isn't working:
 1. Check AI configuration: `python run_ibex.py ai diagnose`
 2. Ensure your AI provider is running (Ollama, etc.)
 3. Verify API keys are set for cloud providers
@@ -327,14 +298,12 @@ ibex/
 │       │   └── README.md     # AI documentation
 │       ├── git_integration.py # Git integration
 │       ├── telemetry.py      # Telemetry functionality
-│       └── tui.py            # Text User Interface
 ├── tests/                # Test suite
 │   ├── __init__.py
 │   ├── debug_ai.py
 │   ├── simple_ollama_test.py
 │   └── test_ollama.py
 ├── run_ibex.py          # Main runner script
-├── run_tui.py           # TUI launcher script
 ├── start_self_monitoring.py # Self-monitoring launcher
 ├── setup.py             # Package installation
 ├── .gitignore           # Git ignore rules

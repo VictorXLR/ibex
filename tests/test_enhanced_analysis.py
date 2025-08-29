@@ -150,7 +150,7 @@ async def main():
     print("\n💡 To see the enhanced analysis in action:")
     print("  1. Make some changes to IBEX files")
     print("  2. Run: python run_ibex.py ai analyze-contribution")
-    print("  3. Or launch TUI: python run_tui.py and go to Self-Monitor tab")
+    print("  3. Or use CLI: python run_ibex.py ai self-monitor")
 
 if __name__ == "__main__":
     asyncio.run(main())

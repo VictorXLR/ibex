@@ -550,32 +550,7 @@ def generate_contribution_report():
     except Exception as e:
         console.print(f"[red]Error generating contribution report: {e}[/red]")
 
-@app.command("tui")
-def launch_tui():
-    """Launch the IBEX Text User Interface"""
-    try:
-        from .tui import IBEXTUI
 
-        console.print("[green]🐙 Launching IBEX TUI...[/green]")
-        console.print("Use keyboard shortcuts to navigate:")
-        console.print("• 'd' - Dashboard")
-        console.print("• 's' - Stake Points")
-        console.print("• 'c' - AI Chat")
-        console.print("• 'a' - AI Configuration")
-        console.print("• 'h' - History")
-        console.print("• 'm' - Self-Monitoring")
-        console.print("• 't' - Telemetry")
-        console.print("• 'q' - Quit")
-        console.print()
-
-        tui_app = IBEXTUI()
-        tui_app.run()
-
-    except ImportError as e:
-        console.print(f"[red]TUI dependencies not installed. Please run: pip install textual textual-dev[/red]")
-        console.print(f"[red]Error: {e}[/red]")
-    except Exception as e:
-        console.print(f"[red]Error launching TUI: {e}[/red]")
 
 if __name__ == "__main__":
     app()
