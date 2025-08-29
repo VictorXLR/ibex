@@ -108,7 +108,7 @@ class IbexWatcher:
             # Store semantic information
             if commit:
                 self.llm.store_semantic_change(
-                    commit.hexsha,
+                    str(commit.hexsha),
                     llm_message,
                     state['changes'],
                     state.get('intent', '')

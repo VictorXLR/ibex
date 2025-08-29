@@ -157,11 +157,102 @@ def configure_ai(
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
 
+@ai_app.command("diagnose")
+def diagnose_ai():
+    """Diagnose AI connectivity and configuration issues"""
+    console.print("[bold]🔍 AI Diagnosis Tool[/bold]")
+    console.print("=" * 50)
+
+    try:
+        from .ai import AIManager
+
+        # Check current configuration
+        console.print("📋 Current Configuration:")
+        provider = os.getenv('IBEX_AI_PROVIDER', 'ollama')
+        console.print(f"  Provider: {provider}")
+
+        if provider == 'ollama':
+            model = os.getenv('OLLAMA_MODEL', 'qwen3-coder:30b')
+            base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+            console.print(f"  Model: {model}")
+            console.print(f"  Base URL: {base_url}")
+        elif provider == 'openai':
+            model = os.getenv('OPENAI_MODEL', 'gpt-4')
+            api_key = os.getenv('OPENAI_API_KEY', '')
+            console.print(f"  Model: {model}")
+            console.print(f"  API Key: {'✓ Set' if api_key else '✗ Missing'}")
+        elif provider == 'claude':
+            model = os.getenv('ANTHROPIC_MODEL', 'claude-3-sonnet-20240229')
+            api_key = os.getenv('ANTHROPIC_API_KEY', '')
+            console.print(f"  Model: {model}")
+            console.print(f"  API Key: {'✓ Set' if api_key else '✗ Missing'}")
+
+        console.print("\n🔧 Testing AI Manager...")
+
+        # Test AI manager creation
+        try:
+            manager = AIManager()
+            console.print("  ✓ AI Manager created successfully")
+        except Exception as e:
+            console.print(f"  ✗ AI Manager creation failed: {e}")
+            return
+
+        # Test availability
+        try:
+            is_available = manager.is_available()
+            console.print(f"  {'✓' if is_available else '✗'} AI Provider available: {is_available}")
+        except Exception as e:
+            console.print(f"  ✗ Availability check failed: {e}")
+            return
+
+        if not is_available:
+            console.print("\n🚨 Troubleshooting Tips:")
+            if provider == 'ollama':
+                console.print("  • Make sure Ollama is installed and running")
+                console.print("  • Start Ollama: ollama serve")
+                console.print("  • Pull the model: ollama pull qwen3-coder:30b")
+                console.print("  • Check status: curl http://localhost:11434/api/tags")
+            elif provider == 'openai':
+                console.print("  • Set your OpenAI API key: export OPENAI_API_KEY=your_key")
+                console.print("  • Check your API key is valid")
+            elif provider == 'claude':
+                console.print("  • Set your Anthropic API key: export ANTHROPIC_API_KEY=your_key")
+                console.print("  • Check your API key is valid")
+            return
+
+        # Test basic chat
+        console.print("\n💬 Testing Chat Functionality...")
+        try:
+            test_messages = [{"role": "user", "content": "Say 'Hello from IBEX!'"}]
+            import asyncio
+            response = asyncio.run(manager.chat(test_messages))
+            console.print(f"  ✓ Chat test successful: {response.strip()}")
+        except Exception as e:
+            console.print(f"  ✗ Chat test failed: {e}")
+
+        # Test enhanced chat
+        console.print("\n🎯 Testing Enhanced Chat...")
+        try:
+            import asyncio
+            response = asyncio.run(manager.chat_with_context(
+                user_message="What can you help me with?",
+                include_project_context=True
+            ))
+            console.print(f"  ✓ Enhanced chat test successful: {response[:100]}...")
+        except Exception as e:
+            console.print(f"  ✗ Enhanced chat test failed: {e}")
+
+        console.print("\n✅ Diagnosis complete!")
+
+    except Exception as e:
+        console.print(f"[red]❌ Diagnosis failed: {e}[/red]")
+
 @ai_app.command("chat")
 def ai_chat(
-    message: str = typer.Argument(..., help="Message to send to AI"),
+    message: str = typer.Argument(None, help="Message to send to AI (optional in loop mode)"),
     provider: str = typer.Option(None, help="AI provider to use"),
-    model: str = typer.Option(None, help="Model to use")
+    model: str = typer.Option(None, help="Model to use"),
+    loop: bool = typer.Option(False, "--loop", "-l", help="Interactive chat mode")
 ):
     """Chat with AI"""
     try:
@@ -169,16 +260,108 @@ def ai_chat(
         import asyncio
 
         manager = AIManager(provider, model)
-        messages = [{"role": "user", "content": message}]
+        
+        if loop:
+            # Interactive chat mode
+            asyncio.run(interactive_chat_loop(manager, message))
+        else:
+            # Single message mode
+            if not message:
+                console.print("[red]Error: Message is required in non-loop mode[/red]")
+                return
+                
+            with console.status("[bold green]Thinking...[/bold green]"):
+                response = asyncio.run(manager.chat_with_context(
+                    user_message=message,
+                    include_project_context=True
+                ))
 
-        with console.status("[bold green]Thinking...[/bold green]"):
-            response = asyncio.run(manager.chat(messages))
-
-        console.print(f"\n[bold blue]AI Response:[/bold blue]")
-        console.print(response)
+            console.print(f"\n[bold blue]AI Response:[/bold blue]")
+            console.print(response)
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
+
+async def interactive_chat_loop(manager, initial_message=None):
+    """Interactive chat loop with conversation history"""
+    conversation_history = []
+    
+    # Show welcome message
+    console.print("\n[bold green]🤖 IBEX AI Chat - Interactive Mode[/bold green]")
+    console.print(f"[dim]Provider: {manager.provider} | Model: {manager.model}[/dim]")
+    console.print("[dim]Type 'quit', 'exit', or 'bye' to end the conversation[/dim]")
+    console.print("=" * 60)
+    
+    # Check if AI is available
+    if not manager.is_available():
+        console.print("[red]❌ AI provider not available. Please check your configuration.[/red]")
+        console.print("Run: [cyan]python run_ibex.py ai diagnose[/cyan] for help")
+        return
+    
+    # Send initial message if provided
+    if initial_message:
+        await send_message_in_loop(manager, initial_message, conversation_history)
+    
+    # Main chat loop
+    while True:
+        try:
+            # Get user input
+            user_input = console.input("\n[bold green]You:[/bold green] ").strip()
+            
+            # Check for exit commands
+            if user_input.lower() in ['quit', 'exit', 'bye', 'q']:
+                console.print("\n[yellow]👋 Goodbye! Chat session ended.[/yellow]")
+                break
+            
+            # Skip empty messages
+            if not user_input:
+                continue
+            
+            # Send message and get response
+            await send_message_in_loop(manager, user_input, conversation_history)
+            
+        except KeyboardInterrupt:
+            console.print("\n\n[yellow]👋 Chat interrupted. Goodbye![/yellow]")
+            break
+        except EOFError:
+            console.print("\n\n[yellow]👋 Chat ended. Goodbye![/yellow]")
+            break
+        except Exception as e:
+            console.print(f"[red]Error in chat loop: {e}[/red]")
+            console.print("Continuing chat... (type 'quit' to exit)")
+
+async def send_message_in_loop(manager, user_message, conversation_history):
+    """Send a message and handle the response in the chat loop"""
+    try:
+        # Add user message to history
+        conversation_history.append({"role": "user", "content": user_message})
+        
+        # Show thinking indicator
+        with console.status("[bold green]🤖 AI is thinking...[/bold green]"):
+            # Use enhanced chat with context and conversation history
+            response = await manager.chat_with_context(
+                user_message=user_message,
+                conversation_history=conversation_history[:-1],  # Exclude current message
+                include_project_context=True
+            )
+        
+        # Add AI response to history
+        conversation_history.append({"role": "assistant", "content": response})
+        
+        # Display AI response with nice formatting
+        console.print(f"\n[bold blue]🤖 AI:[/bold blue]")
+        console.print(f"[white]{response}[/white]")
+        
+        # Keep conversation history manageable (last 20 messages)
+        if len(conversation_history) > 20:
+            conversation_history = conversation_history[-20:]
+            
+    except Exception as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        console.print("[dim]Troubleshooting:[/dim]")
+        console.print("[dim]• Run 'python run_ibex.py ai diagnose' for AI setup help[/dim]")
+        console.print("[dim]• Check your AI provider configuration[/dim]")
+        console.print("[dim]• Ensure your AI service is running[/dim]")
 
 @ai_app.command("models")
 def list_models(provider: str = typer.Argument(..., help="Provider to list models for")):

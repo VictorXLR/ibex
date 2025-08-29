@@ -17,19 +17,19 @@ class GitManager:
         else:
             self.repo.git.add(A=True)
     
-    def commit(self, message: str, description: str = "") -> bool:
+    def commit(self, message: str, description: str = ""):
         """Create a commit with the given message and optional description"""
         try:
             if description:
                 full_message = f"{message}\n\n{description}"
             else:
                 full_message = message
-                
-            self.repo.index.commit(full_message)
-            return True
+
+            commit_obj = self.repo.index.commit(full_message)
+            return commit_obj
         except GitCommandError as e:
             print(f"Git commit error: {e}")
-            return False
+            return None
     
     def get_uncommitted_changes(self) -> List[str]:
         """Get list of files with uncommitted changes (including untracked files)"""

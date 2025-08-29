@@ -4,6 +4,7 @@ Ollama provider implementation using direct HTTP API
 
 import os
 import json
+import asyncio
 import aiohttp
 from typing import List, Dict, Any, Optional
 from .base_provider import BaseProvider
@@ -22,58 +23,104 @@ class OllamaProvider(BaseProvider):
         pass
 
     async def chat_completion(self, messages: List[Dict[str, str]], **kwargs) -> str:
-        """Generate chat completion using Ollama HTTP API"""
-        try:
-            # Convert messages to Ollama format
-            ollama_messages = []
-            system_message = None
+        """Generate chat completion using Ollama HTTP API with retry logic"""
+        max_retries = kwargs.get('max_retries', 3)
+        retry_delay = kwargs.get('retry_delay', 1)
+        
+        for attempt in range(max_retries):
+            try:
+                # Convert messages to Ollama format
+                ollama_messages = []
+                system_message = None
 
-            for msg in messages:
-                if msg['role'] == 'system':
-                    system_message = msg['content']
-                elif msg['role'] == 'user':
-                    ollama_messages.append({"role": "user", "content": msg['content']})
-                elif msg['role'] == 'assistant':
-                    ollama_messages.append({"role": "assistant", "content": msg['content']})
+                for msg in messages:
+                    if msg['role'] == 'system':
+                        system_message = msg['content']
+                    elif msg['role'] == 'user':
+                        ollama_messages.append({"role": "user", "content": msg['content']})
+                    elif msg['role'] == 'assistant':
+                        ollama_messages.append({"role": "assistant", "content": msg['content']})
 
-            # Prepare request payload
-            payload = {
-                "model": self.model,
-                "messages": ollama_messages,
-                "stream": False,
-                "options": {
-                    "temperature": kwargs.get('temperature', 0.7),
-                    "num_predict": kwargs.get('max_tokens', 1024)
+                # Prepare request payload
+                payload = {
+                    "model": self.model,
+                    "messages": ollama_messages,
+                    "stream": False,
+                    "options": {
+                        "temperature": kwargs.get('temperature', 0.7),
+                        "num_predict": kwargs.get('max_tokens', 1024)
+                    }
                 }
-            }
 
-            # Add system message if present
-            if system_message:
-                payload["messages"].insert(0, {"role": "system", "content": system_message})
+                # Add system message if present
+                if system_message:
+                    payload["messages"].insert(0, {"role": "system", "content": system_message})
 
-            # Make async API request
-            timeout = aiohttp.ClientTimeout(total=300)  # 5 minute timeout
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(
-                    f"{self.base_url}/api/chat",
-                    json=payload,
-                    headers={"Content-Type": "application/json"}
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise RuntimeError(f"Ollama API error {response.status}: {error_text}")
+                # Make async API request
+                timeout = aiohttp.ClientTimeout(total=300)  # 5 minute timeout
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.post(
+                        f"{self.base_url}/api/chat",
+                        json=payload,
+                        headers={"Content-Type": "application/json"}
+                    ) as response:
+                        if response.status != 200:
+                            error_text = await response.text()
+                            error_msg = f"Ollama API error {response.status}: {error_text}"
+                            
+                            # Check if it's a retryable error
+                            if response.status in [500, 502, 503, 504] and attempt < max_retries - 1:
+                                print(f"Retryable error on attempt {attempt + 1}: {error_msg}")
+                                await asyncio.sleep(retry_delay * (attempt + 1))
+                                continue
+                            else:
+                                raise RuntimeError(error_msg)
 
-                    result = await response.json()
+                        result = await response.json()
 
-                    if 'message' in result and 'content' in result['message']:
-                        return result['message']['content']
-                    else:
-                        raise RuntimeError(f"Unexpected response format: {result}")
+                        if 'message' in result and 'content' in result['message']:
+                            return result['message']['content']
+                        else:
+                            raise RuntimeError(f"Unexpected response format: {result}")
 
-        except aiohttp.ClientError as e:
-            raise RuntimeError(f"Ollama API request failed: {str(e)}")
-        except Exception as e:
-            raise RuntimeError(f"Ollama API error: {str(e)}")
+            except aiohttp.ClientConnectorError as e:
+                error_msg = f"Connection failed to Ollama at {self.base_url}: {str(e)}"
+                if attempt < max_retries - 1:
+                    print(f"Connection error on attempt {attempt + 1}: {error_msg}")
+                    await asyncio.sleep(retry_delay * (attempt + 1))
+                    continue
+                else:
+                    raise RuntimeError(f"{error_msg} - Check if Ollama is running")
+                    
+            except asyncio.TimeoutError as e:
+                error_msg = f"Request timeout to Ollama API: {str(e)}"
+                if attempt < max_retries - 1:
+                    print(f"Timeout on attempt {attempt + 1}: {error_msg}")
+                    await asyncio.sleep(retry_delay * (attempt + 1))
+                    continue
+                else:
+                    raise RuntimeError(f"{error_msg} - Model: {self.model}")
+                    
+            except json.JSONDecodeError as e:
+                error_msg = f"Invalid JSON response from Ollama API: {str(e)}"
+                if attempt < max_retries - 1:
+                    print(f"JSON decode error on attempt {attempt + 1}: {error_msg}")
+                    await asyncio.sleep(retry_delay * (attempt + 1))
+                    continue
+                else:
+                    raise RuntimeError(error_msg)
+                    
+            except Exception as e:
+                error_msg = f"Unexpected error: {str(e)}"
+                if attempt < max_retries - 1:
+                    print(f"Unexpected error on attempt {attempt + 1}: {error_msg}")
+                    await asyncio.sleep(retry_delay * (attempt + 1))
+                    continue
+                else:
+                    raise RuntimeError(f"{error_msg} - Model: {self.model}, URL: {self.base_url}")
+        
+        # This should never be reached, but just in case
+        raise RuntimeError(f"All {max_retries} attempts failed for Ollama API request")
 
     async def is_available_async(self) -> bool:
         """Check if Ollama API is available (async version)"""
@@ -120,7 +167,8 @@ class OllamaProvider(BaseProvider):
                     return result
                 finally:
                     loop.close()
-        except Exception:
+        except Exception as e:
+            print(f"Ollama availability check failed: {e}")
             return False
 
     def validate_api_key(self) -> bool:

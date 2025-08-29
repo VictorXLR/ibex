@@ -7,7 +7,9 @@ from datetime import datetime
 import difflib
 from uuid import uuid4
 from git import Repo
+from .ai import AIManager
 
+# Provider availability flags
 try:
     import openai
     HAS_OPENAI = True
@@ -38,10 +40,10 @@ class LLMManager:
         except:
             self.repo = None
 
-        # Configure LLM provider
-        self.provider = provider or os.getenv('IBEX_LLM_PROVIDER', 'openai')
-        self.model = model or self._get_default_model()
-        self._setup_client()
+        # Configure LLM provider using AIManager
+        self.ai_manager = AIManager(provider, model)
+        self.provider = self.ai_manager.provider
+        self.model = self.ai_manager.model
         
     def _init_db(self):
         """Initialize SQLite database for semantic history"""
@@ -57,29 +59,7 @@ class LLMManager:
         conn.commit()
         conn.close()
 
-    def _get_default_model(self) -> str:
-        """Get default model for the configured provider"""
-        if self.provider == 'openai':
-            return os.getenv('OPENAI_MODEL', 'gpt-4')
-        elif self.provider == 'anthropic':
-            return os.getenv('ANTHROPIC_MODEL', 'claude-3-sonnet-20240229')
-        elif self.provider == 'ollama':
-            return os.getenv('OLLAMA_MODEL', 'codellama')
-        else:
-            return 'gpt-4'
 
-    def _setup_client(self):
-        """Setup the appropriate LLM client"""
-        if self.provider == 'openai' and HAS_OPENAI:
-            openai.api_key = os.getenv('OPENAI_API_KEY')
-            self.client = openai
-        elif self.provider == 'anthropic' and HAS_ANTHROPIC:
-            api_key = os.getenv('ANTHROPIC_API_KEY')
-            self.client = anthropic.Anthropic(api_key=api_key)
-        elif self.provider == 'ollama' and HAS_OLLAMA:
-            self.client = ollama
-        else:
-            self.client = None
 
     def generate_diff(self, file_path: str) -> str:
         """Generate git-style diff for a file"""
@@ -96,7 +76,7 @@ class LLMManager:
         if not changes:
             return "No changes to analyze"
 
-        if not self.client:
+        if not self.ai_manager.is_available():
             return f"LLM provider '{self.provider}' not available. Please install the required dependencies and set the appropriate API keys."
 
         diffs = []
@@ -124,51 +104,14 @@ class LLMManager:
         """
 
         try:
-            if self.provider == 'openai':
-                return await self._analyze_with_openai(prompt)
-            elif self.provider == 'anthropic':
-                return await self._analyze_with_anthropic(prompt)
-            elif self.provider == 'ollama':
-                return await self._analyze_with_ollama(prompt)
-            else:
-                return f"Unsupported LLM provider: {self.provider}"
+            messages = [
+                {"role": "system", "content": "You are a code analysis assistant that creates meaningful git commit messages."},
+                {"role": "user", "content": prompt}
+            ]
+            return await self.ai_manager.chat(messages)
         except Exception as e:
             print(f"LLM error: {e}")
             return f"Error analyzing changes: {str(e)}"
-
-    async def _analyze_with_openai(self, prompt: str) -> str:
-        """Analyze changes using OpenAI API"""
-        response = await openai.ChatCompletion.acreate(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You are a code analysis assistant that creates meaningful git commit messages."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response.choices[0].message.content
-
-    async def _analyze_with_anthropic(self, prompt: str) -> str:
-        """Analyze changes using Anthropic API"""
-        response = await self.client.messages.create(
-            model=self.model,
-            max_tokens=1024,
-            system="You are a code analysis assistant that creates meaningful git commit messages.",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response.content[0].text
-
-    async def _analyze_with_ollama(self, prompt: str) -> str:
-        """Analyze changes using Ollama"""
-        response = await self.client.chat(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You are a code analysis assistant that creates meaningful git commit messages."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response['message']['content']
 
     def store_semantic_change(self, commit_hash: str, description: str, changes: List[Dict], intent: str):
         """Store semantic change information in SQLite"""

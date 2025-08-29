@@ -133,41 +133,150 @@ class ContributionMonitor:
         return analysis
 
     async def _analyze_categories(self, categories: Dict[str, List[str]]) -> Dict[str, Any]:
-        """Analyze different categories of files"""
+        """Analyze different categories of files with comprehensive logic"""
 
         feedback = []
         suggestions = []
+        complexity_score = 0
+        risk_level = "low"
 
         # Core functionality analysis
         if 'core' in categories:
+            core_files = categories['core']
             feedback.append("✅ Core functionality modified - ensure backward compatibility")
             suggestions.append("Consider adding unit tests for core changes")
+            suggestions.append("Review API changes for breaking compatibility")
+            complexity_score += len(core_files) * 3  # High impact
+            
+            # Analyze specific core files
+            for file_path in core_files:
+                if 'cli.py' in file_path:
+                    feedback.append("🔧 CLI interface modified - test command-line functionality")
+                elif 'core.py' in file_path:
+                    feedback.append("⚙️ Core logic modified - thorough testing recommended")
+                    risk_level = "high"
 
         # AI functionality analysis
         if 'ai' in categories:
+            ai_files = categories['ai']
             feedback.append("🤖 AI functionality updated - verify all providers work")
             suggestions.append("Test AI providers with different models")
+            suggestions.append("Validate API key handling and error cases")
+            complexity_score += len(ai_files) * 2
+            
+            # Specific AI component analysis
+            for file_path in ai_files:
+                if 'provider' in file_path:
+                    feedback.append(f"🔌 AI provider modified: {Path(file_path).name}")
+                    suggestions.append(f"Test connectivity and error handling for {Path(file_path).stem}")
+                elif 'config' in file_path:
+                    feedback.append("⚙️ AI configuration updated - validate all settings")
+                    risk_level = "medium"
 
         # Documentation analysis
         if 'documentation' in categories:
+            doc_files = categories['documentation']
             feedback.append("📚 Documentation updated - good practice!")
-            if len(categories.get('documentation', [])) > len(categories.get('code', [])):
-                suggestions.append("Documentation changes seem extensive - ensure code changes are also covered")
+            
+            # Check documentation coverage
+            code_categories = ['python', 'golang', 'core', 'ai']
+            code_files = sum(len(categories.get(cat, [])) for cat in code_categories)
+            doc_ratio = len(doc_files) / max(code_files, 1)
+            
+            if doc_ratio > 0.5:
+                feedback.append("📖 Good documentation coverage relative to code changes")
+            elif code_files > 0:
+                suggestions.append("Consider adding more documentation for the code changes")
+                
+            # Specific documentation checks
+            for file_path in doc_files:
+                if 'README' in file_path:
+                    feedback.append("📋 Main README updated - verify accuracy of new content")
+                elif 'API' in file_path or 'api' in file_path:
+                    feedback.append("📡 API documentation updated - ensure examples work")
 
         # Testing analysis
         if 'testing' in categories:
+            test_files = categories['testing']
             feedback.append("🧪 Tests added/modified - excellent!")
-        elif any(cat in ['python', 'golang', 'core'] for cat in categories.keys()):
-            suggestions.append("Consider adding tests for the code changes")
+            
+            # Analyze test coverage
+            if len(test_files) >= 2:
+                feedback.append("🎯 Comprehensive test coverage detected")
+            
+            # Check test types
+            for file_path in test_files:
+                if 'unit' in file_path or 'test_' in Path(file_path).name:
+                    feedback.append("🔬 Unit tests updated")
+                elif 'integration' in file_path:
+                    feedback.append("🔗 Integration tests updated")
+                elif 'e2e' in file_path or 'end2end' in file_path:
+                    feedback.append("🎭 End-to-end tests updated")
+        else:
+            # Check if tests are needed
+            code_categories = ['python', 'golang', 'core', 'ai']
+            if any(cat in categories for cat in code_categories):
+                suggestions.append("Consider adding tests for the code changes")
+                if 'core' in categories or 'ai' in categories:
+                    suggestions.append("High-impact changes detected - tests strongly recommended")
 
         # Configuration analysis
         if 'configuration' in categories:
+            config_files = categories['configuration']
             feedback.append("⚙️ Configuration files changed - check for breaking changes")
             suggestions.append("Update documentation if configuration format changed")
+            complexity_score += len(config_files)
+            
+            # Specific configuration checks
+            for file_path in config_files:
+                if 'requirements' in file_path:
+                    feedback.append("📦 Dependencies updated - check for compatibility issues")
+                elif 'setup' in file_path:
+                    feedback.append("🔧 Setup configuration changed - test installation process")
+                elif any(ext in file_path for ext in ['.yml', '.yaml', '.json']):
+                    feedback.append("📝 Configuration format files updated")
+
+        # Python code analysis
+        if 'python' in categories:
+            py_files = categories['python']
+            complexity_score += len(py_files)
+            
+            # Check file count for complexity
+            if len(py_files) > 5:
+                feedback.append("📊 Large number of Python files modified - consider staged rollout")
+                risk_level = "medium" if risk_level == "low" else risk_level
+
+        # Go code analysis
+        if 'golang' in categories:
+            go_files = categories['golang']
+            feedback.append("🐹 Go code modified - verify build and performance")
+            suggestions.append("Run Go-specific tests and benchmarks")
+            complexity_score += len(go_files) * 2
+
+        # Calculate overall risk and complexity
+        if complexity_score > 10:
+            risk_level = "high"
+        elif complexity_score > 5:
+            risk_level = "medium" if risk_level == "low" else risk_level
+
+        # Add complexity-based suggestions
+        if complexity_score > 8:
+            suggestions.append("High complexity changes - consider breaking into smaller commits")
+            suggestions.append("Extra code review recommended for complex changes")
+
+        # Check for cross-cutting concerns
+        total_categories = len(categories)
+        if total_categories >= 4:
+            feedback.append("🌐 Cross-cutting changes detected across multiple areas")
+            suggestions.append("Consider impact on system integration")
 
         return {
             'feedback': feedback,
-            'suggestions': suggestions
+            'suggestions': suggestions,
+            'complexity_score': complexity_score,
+            'risk_level': risk_level,
+            'categories_affected': total_categories,
+            'analysis_depth': 'comprehensive'
         }
 
     async def _generate_ai_feedback(self, files_changed: List[str], commit_message: str) -> Optional[Dict[str, Any]]:
@@ -178,70 +287,110 @@ class ContributionMonitor:
             return None
 
         try:
-            # Create a comprehensive analysis prompt
-            analysis_prompt = f"""
-Analyze this contribution to the IBEX project:
-
-Files Changed:
-{chr(10).join(f"- {file}" for file in files_changed)}
-
+            # Use enhanced analysis with full context
+            custom_prompt = f"""
 Commit Message: {commit_message or "Not provided"}
 
-Please provide:
-1. Code quality assessment
-2. Potential issues or improvements
-3. Documentation needs
-4. Testing recommendations
-5. Overall contribution quality (1-10 scale)
+Please provide a detailed analysis including:
+1. Code quality assessment with specific examples
+2. Potential bugs or security issues
+3. Documentation and commenting quality
+4. Testing requirements and coverage
+5. Performance implications
+6. Code organization and maintainability
+7. Overall contribution quality (1-10 scale)
 
-Focus on:
-- Code organization and readability
-- Error handling
-- Documentation completeness
-- Testing adequacy
-- Alignment with project goals
+Be specific and actionable - reference actual code patterns, suggest concrete improvements, and prioritize the most important issues.
 """
 
-            messages = [
-                {"role": "system", "content": "You are a senior software engineer reviewing contributions to the IBEX project. Provide constructive, helpful feedback."},
-                {"role": "user", "content": analysis_prompt}
-            ]
-
-            ai_response = await self.ai_manager.chat(messages)
+            ai_response = await self.ai_manager.analyze_with_context(
+                files_changed,
+                analysis_type="contribution",
+                custom_prompt=custom_prompt,
+                max_tokens=8192  # Allow for deeper analysis
+            )
 
             return {
                 'analysis': ai_response,
                 'generated_at': datetime.now().isoformat(),
                 'provider': self.ai_manager.provider,
-                'model': self.ai_manager.model
+                'model': self.ai_manager.model,
+                'analysis_type': 'enhanced',
+                'context_used': True
             }
 
         except Exception as e:
             return {
                 'error': str(e),
-                'generated_at': datetime.now().isoformat()
+                'generated_at': datetime.now().isoformat(),
+                'analysis_type': 'error'
             }
 
     def _calculate_quality_score(self, analysis: Dict[str, Any]) -> int:
-        """Calculate a quality score for the contribution"""
+        """Calculate a quality score for the contribution based on comprehensive analysis"""
 
         score = 5  # Base score
 
         # Positive factors
         if 'testing' in analysis.get('categories', {}):
-            score += 2
-
+            score += 3  # Testing is very important
+            
         if 'documentation' in analysis.get('categories', {}):
-            score += 1
+            score += 2  # Documentation is important
 
         # Check for AI analysis quality
         ai_analysis = analysis.get('ai_analysis', {})
         if 'analysis' in ai_analysis and len(ai_analysis['analysis']) > 100:
-            score += 2
+            score += 1  # AI provided substantial feedback
+
+        # Risk and complexity factors
+        risk_level = analysis.get('risk_level', 'low')
+        complexity_score = analysis.get('complexity_score', 0)
+        
+        if risk_level == 'low':
+            score += 1
+        elif risk_level == 'high':
+            score -= 1
+            
+        if complexity_score > 10:
+            score -= 2  # Very complex changes
+        elif complexity_score > 5:
+            score -= 1  # Moderately complex changes
+
+        # Categories and coverage factors
+        categories = analysis.get('categories', {})
+        
+        # Good practices bonus
+        code_categories = sum(1 for cat in ['python', 'golang', 'core', 'ai'] if cat in categories)
+        non_code_categories = sum(1 for cat in ['testing', 'documentation'] if cat in categories)
+        
+        if code_categories > 0 and non_code_categories > 0:
+            score += 2  # Good balance of code and support changes
+            
+        # Comprehensive coverage bonus
+        if analysis.get('categories_affected', 0) >= 3:
+            if 'testing' in categories and 'documentation' in categories:
+                score += 1  # Comprehensive change with proper support
+            else:
+                score -= 1  # Broad changes without proper support
+
+        # Specific category bonuses
+        if 'core' in categories and 'testing' in categories:
+            score += 1  # Core changes with tests
+            
+        if 'ai' in categories:
+            if 'testing' in categories:
+                score += 1  # AI changes with tests
+            else:
+                score -= 1  # AI changes without tests are risky
 
         # Negative factors
-        if not analysis.get('categories', {}):
-            score -= 2
+        if not categories:
+            score -= 3  # No categorized changes
+
+        # AI feedback quality
+        if ai_analysis.get('analysis_type') == 'error':
+            score -= 1  # AI analysis failed
 
         # Ensure score is between 1-10
         return max(1, min(10, score))

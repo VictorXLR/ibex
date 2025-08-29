@@ -61,15 +61,6 @@ class IBEXSelfMonitor:
                 self.ai_manager = MockAIManager()
         return self.ai_manager
 
-        # IBEX-specific file patterns to monitor
-        self.important_files = [
-            'python/ibex/**/*.py',      # Python code
-            'python/requirements.txt',  # Dependencies
-            '*.md',                     # Documentation
-            'setup.py',                 # Package setup
-            '*.yml', '*.yaml',          # Configuration
-        ]
-
     async def start_self_monitoring(self):
         """Start self-monitoring IBEX"""
         print("🐙 IBEX Self-Monitoring Started")
@@ -129,55 +120,158 @@ class IBEXSelfMonitor:
             return {"status": "error", "message": str(e), "error_details": str(e)}
 
     async def _generate_improvements(self, analysis: Dict[str, Any]) -> List[str]:
-        """Generate specific improvement suggestions for IBEX"""
+        """Generate specific improvement suggestions for IBEX with comprehensive analysis"""
 
         improvements = []
+        categories = analysis.get('categories', {})
+        risk_level = analysis.get('risk_level', 'low')
+        complexity_score = analysis.get('complexity_score', 0)
+        quality_score = analysis.get('quality_score', 0)
 
-        # Check for missing tests
-        if 'testing' not in analysis.get('categories', {}):
+        # Risk-based improvements
+        if risk_level == 'high':
+            improvements.append("🚨 HIGH RISK changes detected - implement staged rollout")
+            improvements.append("🔍 Extra code review and testing required for high-risk changes")
+            
+        # Quality-based improvements
+        if quality_score < 5:
+            improvements.append("📉 Quality score below average - address key improvement areas")
+            if 'testing' not in categories:
+                improvements.append("🧪 PRIORITY: Add comprehensive test coverage")
+            if 'documentation' not in categories:
+                improvements.append("📚 PRIORITY: Add or update documentation")
+
+        # Check for missing tests with specific recommendations
+        if 'testing' not in categories:
             code_files = []
-            for category, files in analysis.get('categories', {}).items():
+            for category, files in categories.items():
                 if category in ['python', 'golang', 'core', 'ai']:
                     code_files.extend(files)
 
             if code_files:
-                improvements.append("Consider adding unit tests for the modified code files")
+                improvements.append("🧪 Consider adding unit tests for the modified code files")
+                
+                # Specific test recommendations based on file types
+                if 'core' in categories:
+                    improvements.append("🔧 Add integration tests for core functionality changes")
+                if 'ai' in categories:
+                    improvements.append("🤖 Add provider-specific tests for AI functionality")
+                    
+                # High complexity needs more testing
+                if complexity_score > 8:
+                    improvements.append("🎯 High complexity detected - comprehensive test suite recommended")
 
-        # Check for documentation updates
-        if 'documentation' not in analysis.get('categories', {}):
-            improvements.append("Update README.md or add docstrings for new functionality")
+        # Documentation improvements
+        if 'documentation' not in categories:
+            improvements.append("📚 Update README.md or add docstrings for new functionality")
+            
+            # Specific documentation needs
+            if 'ai' in categories:
+                improvements.append("📖 Update AI provider documentation with configuration examples")
+            if 'core' in categories:
+                improvements.append("📋 Update core functionality documentation and usage examples")
+            if 'configuration' in categories:
+                improvements.append("⚙️ Document configuration changes and migration steps")
 
         # AI-specific improvements
-        if 'ai' in analysis.get('categories', {}):
-            improvements.append("Test AI functionality with different providers and models")
-            improvements.append("Update AI documentation with new features")
+        if 'ai' in categories:
+            improvements.append("🤖 Test AI functionality with different providers and models")
+            improvements.append("🔌 Validate error handling and fallback mechanisms")
+            improvements.append("🛡️ Test API key validation and security measures")
+            
+            # Provider-specific recommendations
+            ai_files = categories['ai']
+            for file_path in ai_files:
+                if 'ollama' in file_path:
+                    improvements.append("🦙 Test Ollama connectivity and model availability")
+                elif 'openai' in file_path:
+                    improvements.append("🔓 Test OpenAI API integration and rate limiting")
+                elif 'claude' in file_path:
+                    improvements.append("🧠 Test Claude API integration and context handling")
 
-        # Performance considerations
-        if any('core' in cat or 'performance' in str(analysis).lower() for cat in analysis.get('categories', {})):
-            improvements.append("Consider performance benchmarking for core changes")
+        # Performance and scalability improvements
+        if any('core' in cat or 'performance' in str(analysis).lower() for cat in categories):
+            improvements.append("⚡ Consider performance benchmarking for core changes")
+            
+        if complexity_score > 10:
+            improvements.append("🚀 High complexity changes - consider performance impact assessment")
+
+        # Configuration and deployment improvements
+        if 'configuration' in categories:
+            improvements.append("🔧 Test configuration migration and backward compatibility")
+            improvements.append("📋 Update deployment documentation for configuration changes")
+            
+        # Code quality improvements
+        if len(categories.get('python', [])) > 5:
+            improvements.append("🐍 Large Python changeset - consider code quality checks (linting, formatting)")
+            
+        # Security improvements
+        if 'ai' in categories or 'core' in categories:
+            improvements.append("🛡️ Review security implications of changes (API keys, data handling)")
+
+        # Integration improvements
+        categories_count = len(categories)
+        if categories_count >= 4:
+            improvements.append("🌐 Cross-cutting changes - test system integration thoroughly")
+            improvements.append("🔄 Consider compatibility testing across different environments")
 
         # Generate AI-powered improvements
         try:
+            # Enhanced prompt with more context
             improvement_prompt = f"""
-Based on this IBEX contribution analysis, suggest specific improvements:
+Based on this comprehensive IBEX contribution analysis, suggest specific, actionable improvements:
 
-Categories: {list(analysis.get('categories', {}).keys())}
-Quality Score: {analysis.get('quality_score', 0)}/10
-AI Analysis: {analysis.get('ai_analysis', {}).get('analysis', 'Not available')[:500]}
+ANALYSIS CONTEXT:
+- Categories affected: {list(categories.keys())}
+- Risk Level: {risk_level}
+- Complexity Score: {complexity_score}/20
+- Quality Score: {quality_score}/10
+- Files changed: {sum(len(files) for files in categories.values())}
 
-Provide 3-5 specific, actionable improvement suggestions for this IBEX contribution.
+DETAILED FEEDBACK:
+{analysis.get('feedback', [])}
+
+CURRENT SUGGESTIONS:
+{analysis.get('suggestions', [])}
+
+AI ANALYSIS:
+{analysis.get('ai_analysis', {}).get('analysis', 'Not available')[:800]}
+
+Please provide 3-5 ADDITIONAL specific, actionable improvement suggestions that complement the existing analysis. Focus on:
+1. Technical implementation improvements
+2. Testing strategies specific to the changes
+3. Documentation gaps not already covered
+4. Potential integration issues
+5. Performance or security considerations
+
+Be specific and prioritize based on the risk level and complexity.
 """
 
             messages = [
-                {"role": "system", "content": "You are an expert software engineer helping improve the IBEX project. Provide specific, actionable suggestions."},
+                {"role": "system", "content": "You are an expert software architect helping improve the IBEX project. Analyze the comprehensive contribution data and provide specific, actionable suggestions that add value beyond the automated analysis."},
                 {"role": "user", "content": improvement_prompt}
             ]
 
-            ai_suggestions = await self._get_ai_manager().chat(messages)
-            improvements.append(f"🤖 AI Suggestions: {ai_suggestions}")
+            ai_suggestions = await self._get_ai_manager().chat(messages, max_tokens=2048)
+            
+            # Format AI suggestions nicely
+            if ai_suggestions and len(ai_suggestions.strip()) > 20:
+                improvements.append("🤖 AI Expert Analysis:")
+                # Split suggestions into lines for better readability
+                for line in ai_suggestions.split('\n'):
+                    if line.strip() and not line.strip().startswith('#'):
+                        improvements.append(f"   {line.strip()}")
 
         except Exception as e:
-            improvements.append(f"Could not generate AI suggestions: {e}")
+            improvements.append(f"⚠️ Could not generate AI suggestions: {e}")
+
+        # Add final summary based on quality
+        if quality_score >= 8:
+            improvements.append("✅ High-quality contribution - minimal additional work needed")
+        elif quality_score >= 6:
+            improvements.append("👍 Good contribution - address suggestions to improve quality")
+        else:
+            improvements.append("⚠️ Contribution needs improvement - prioritize testing and documentation")
 
         return improvements
 

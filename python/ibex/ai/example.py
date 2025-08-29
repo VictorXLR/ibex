@@ -4,8 +4,8 @@ Example usage of the IBEX AI module
 
 import asyncio
 import os
-from ai import AIManager
-from ai.utils import create_commit_message_prompt
+from . import AIManager
+from .utils import create_commit_message_prompt
 
 async def main():
     """Example usage of AI providers"""
@@ -55,6 +55,8 @@ async def main():
     try:
         # Mock changes data
         changes = [
+            {"file": "test.py", "summary": "Added new function"}
+        ] [
             {"summary": "Added user authentication system"},
             {"summary": "Implemented JWT token validation"},
             {"summary": "Added password hashing with bcrypt"}

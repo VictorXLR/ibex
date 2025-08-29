@@ -138,6 +138,27 @@ python run_ibex.py ai models claude
 python run_ibex.py ai models ollama
 ```
 
+#### AI Diagnosis and Troubleshooting
+
+If you're having issues with AI chat or analysis:
+
+```bash
+# Diagnose AI connectivity and configuration
+python run_ibex.py ai diagnose
+
+# Test your AI configuration
+python run_ibex.py ai config --test
+
+# Check available AI providers
+python run_ibex.py ai providers
+```
+
+The diagnosis tool will:
+- Check your AI provider configuration
+- Test connectivity to AI services
+- Verify chat functionality
+- Provide troubleshooting tips
+
 #### Self-Monitoring Features
 
 IBEX includes advanced self-monitoring capabilities to analyze and improve its own codebase:
@@ -222,6 +243,20 @@ The TUI provides:
 - `m` - Self-Monitoring
 - `t` - Telemetry
 - `q` - Quit
+
+**Chat Features:**
+- Enter to send messages
+- AI provides project context awareness
+- Supports conversation history
+- Real-time typing indicators
+- Enhanced error handling with diagnostics
+
+**Chat Troubleshooting:**
+If chat isn't working in TUI:
+1. Check AI configuration: `python run_ibex.py ai diagnose`
+2. Ensure your AI provider is running (Ollama, etc.)
+3. Verify API keys are set for cloud providers
+4. Use the diagnosis tool for detailed troubleshooting
 
 ### Start Telemetry Server
 
