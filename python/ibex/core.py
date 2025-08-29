@@ -86,9 +86,61 @@ class IbexWatcher:
         except Exception as e:
             print(f"Error handling change: {e}")
     
-    async def create_stake(self, name: str, message: str):
+    def detect_current_changes(self):
+        """Detect all current uncommitted changes and add them to the change log"""
+        state = self.load_state()
+        
+        # Get all uncommitted changes from git
+        uncommitted_files = self.git.get_uncommitted_changes()
+        
+        print(f"Detected {len(uncommitted_files)} uncommitted files")
+        
+        for file_path in uncommitted_files:
+            try:
+                # Check if this change is already tracked
+                already_tracked = any(change['file'] == file_path for change in state['changes'])
+                
+                if not already_tracked:
+                    # Read file content to create hash
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        file_hash = hashlib.sha256(content.encode()).hexdigest()[:8]
+                    except:
+                        file_hash = "binary"
+                    
+                    # Add change to state
+                    change = {
+                        'file': file_path,
+                        'hash': file_hash,
+                        'timestamp': datetime.now().isoformat(),
+                        'summary': f"Changed {Path(file_path).name}"
+                    }
+                    
+                    state['changes'].append(change)
+                    print(f"Added to change log: {file_path}")
+            
+            except Exception as e:
+                print(f"Error processing {file_path}: {e}")
+        
+        self.save_state(state)
+        return len(state['changes'])
+
+    async def create_stake(self, name: str, message: str, auto_detect: bool = True):
         """Create a stake point with LLM-enhanced commit message"""
         state = self.load_state()
+        
+        # If auto_detect is True and we have no tracked changes, detect current changes
+        if auto_detect and not state['changes']:
+            print("No tracked changes found, detecting current uncommitted changes...")
+            self.detect_current_changes()
+            state = self.load_state()  # Reload state after detection
+        
+        if not state['changes']:
+            print("No changes to commit")
+            return
+        
+        print(f"Processing {len(state['changes'])} changes for stake...")
         
         # Get LLM analysis
         llm_message = await self.llm.analyze_changes(
@@ -99,20 +151,28 @@ class IbexWatcher:
         # Create commit with enhanced message
         changed_files = list(set([change['file'] for change in state['changes']]))
         if changed_files:
-            self.git.stage_changes(changed_files)
+            print(f"Staging {len(changed_files)} files...")
+            
+            # Stage all changes first
+            self.git.stage_all_changes()
+            
             commit = self.git.commit(
                 message=f"Stake: {name}",
                 description=f"{message}\n\n{llm_message}"
             )
             
-            # Store semantic information
             if commit:
+                print(f"Successfully created commit: {commit.hexsha[:8]}")
+                
+                # Store semantic information
                 self.llm.store_semantic_change(
                     str(commit.hexsha),
                     llm_message,
                     state['changes'],
                     state.get('intent', '')
                 )
+            else:
+                print("Failed to create commit")
         
         # Create stake
         stake = {

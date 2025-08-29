@@ -17,6 +17,10 @@ class GitManager:
         else:
             self.repo.git.add(A=True)
     
+    def stage_all_changes(self):
+        """Stage all changes including untracked files"""
+        self.repo.git.add(A=True)
+    
     def commit(self, message: str, description: str = ""):
         """Create a commit with the given message and optional description"""
         try:

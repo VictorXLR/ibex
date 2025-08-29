@@ -63,6 +63,15 @@ def stake(
     console.print(f"[green]Created stake point: {name}[/green]")
 
 @app.command()
+def detect(
+):
+    """Detect and track current uncommitted changes"""
+    show_mascot("Detecting changes...")
+    watcher = IbexWatcher(".")
+    changes_count = watcher.detect_current_changes()
+    console.print(f"[green]Detected and tracked {changes_count} changes[/green]")
+
+@app.command()
 def status(
     path: str = typer.Argument(".", help="Project path")
 ):
