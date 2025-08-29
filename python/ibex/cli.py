@@ -51,14 +51,15 @@ def init(
         console.print(f"\n[red]Error: {e}[/red]")
 
 @app.command()
-async def stake(
+def stake(
     name: str = typer.Argument(..., help="Stake point name"),
     message: str = typer.Argument(..., help="What did you accomplish?")
 ):
     """Create a stake point to mark your progress"""
     show_mascot("Creating stake point...")
     watcher = IbexWatcher(".")
-    await watcher.create_stake(name, message)
+    import asyncio
+    asyncio.run(watcher.create_stake(name, message))
     console.print(f"[green]Created stake point: {name}[/green]")
 
 @app.command()
@@ -305,15 +306,6 @@ def run_quality_checks():
         else:
             console.print(f"[red]❌ Python Check: {py_check.get('message', 'Failed')}[/red]")
 
-        # Go build
-        go_check = results.get('go_build', {})
-        if go_check.get('status') == 'success':
-            console.print(f"[green]✅ Go Build: Successful[/green]")
-        else:
-            console.print(f"[red]❌ Go Build: {go_check.get('message', 'Failed')}[/red]")
-            if go_check.get('error'):
-                console.print(f"   Error: {go_check['error'][:200]}...")
-
         # Dependencies
         dep_check = results.get('dependencies', {})
         if dep_check.get('status') == 'found':
@@ -365,6 +357,33 @@ def generate_contribution_report():
 
     except Exception as e:
         console.print(f"[red]Error generating contribution report: {e}[/red]")
+
+@app.command("tui")
+def launch_tui():
+    """Launch the IBEX Text User Interface"""
+    try:
+        from .tui import IBEXTUI
+
+        console.print("[green]🐙 Launching IBEX TUI...[/green]")
+        console.print("Use keyboard shortcuts to navigate:")
+        console.print("• 'd' - Dashboard")
+        console.print("• 's' - Stake Points")
+        console.print("• 'c' - AI Chat")
+        console.print("• 'a' - AI Configuration")
+        console.print("• 'h' - History")
+        console.print("• 'm' - Self-Monitoring")
+        console.print("• 't' - Telemetry")
+        console.print("• 'q' - Quit")
+        console.print()
+
+        tui_app = IBEXTUI()
+        tui_app.run()
+
+    except ImportError as e:
+        console.print(f"[red]TUI dependencies not installed. Please run: pip install textual textual-dev[/red]")
+        console.print(f"[red]Error: {e}[/red]")
+    except Exception as e:
+        console.print(f"[red]Error launching TUI: {e}[/red]")
 
 if __name__ == "__main__":
     app()

@@ -20,7 +20,7 @@ pip install openai anthropic ollama
 
 Or install all at once:
 ```bash
-pip install -r requirements.txt
+pip install -r ../../../python/requirements.txt
 ```
 
 ## Quick Start
@@ -87,20 +87,21 @@ manager = AIManager(provider="claude", model="claude-3-sonnet-20240229")
 
 **Setup:**
 1. Install Ollama: https://ollama.ai/
-2. Pull models: `ollama pull codellama`
+2. Pull models: `ollama pull qwen3-coder:30b`
 
 **Usage:**
 ```python
-manager = AIManager(provider="ollama", model="codellama")
+manager = AIManager(provider="ollama", model="qwen3-coder:30b")
 ```
 
 **Available Models:**
-- `codellama` (recommended for coding)
+- `qwen3-coder:30b` (recommended for coding)
+- `qwen3:30b-a3b`
+- `qwen3:30b`
+- `deepseek-r1:32b`
+- `codellama`
 - `llama2`
 - `mistral`
-- `codellama:7b`
-- `codellama:13b`
-- `codellama:34b`
 
 ## CLI Usage
 

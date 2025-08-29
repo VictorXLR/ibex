@@ -21,6 +21,31 @@ class TelemetryClient:
         except Exception as e:
             print(f"Telemetry error: {e}")
 
+    def get_recent_events(self, limit: int = 10):
+        """Get recent telemetry events from log file"""
+        try:
+            if not log_file.exists():
+                return []
+
+            with open(log_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            events = []
+            for line in reversed(lines):  # Get most recent first
+                if len(events) >= limit:
+                    break
+                try:
+                    event_data = json.loads(line.strip())
+                    events.append(event_data)
+                except json.JSONDecodeError:
+                    continue
+
+            return events
+
+        except Exception as e:
+            print(f"Error reading telemetry events: {e}")
+            return []
+
 @app.route('/log', methods=['POST'])
 def log_event():
     data = request.json

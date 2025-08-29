@@ -17,11 +17,11 @@ IBEX is an intelligent development tool that watches your project files, tracks 
 
 ### Prerequisites
 
-- Go 1.16 or later
-- Python 3.7 or later
+- Python 3.8 or later
 - Git
+- Ollama (optional, for local AI models)
 
-### Building from Source
+### Installation
 
 1. Clone the repository:
 ```bash
@@ -29,16 +29,20 @@ git clone <repository-url>
 cd ibex
 ```
 
-2. Build the executable:
+2. Install Python dependencies:
 ```bash
-./build.sh
+pip install -r python/requirements.txt
 ```
 
-This will create an `ibex` executable that embeds all the Python dependencies.
+3. (Optional) Install Ollama for local AI models:
+```bash
+# Install Ollama from https://ollama.ai/
+ollama pull qwen3-coder:30b
+```
 
 ### Dependencies
 
-The Python dependencies are automatically installed when you run IBEX for the first time:
+The project requires the following Python packages:
 
 - `typer` - CLI framework
 - `rich` - Beautiful terminal output
@@ -57,7 +61,7 @@ The Python dependencies are automatically installed when you run IBEX for the fi
 Start IBEX watching your project:
 
 ```bash
-ibex init --intent "Building a web application with React and Node.js"
+python run_ibex.py init --intent "Building a web application with React and Node.js"
 ```
 
 This will:
@@ -70,7 +74,7 @@ This will:
 Mark your progress with stake points:
 
 ```bash
-ibex stake "user-authentication" "Implemented JWT-based authentication system"
+python run_ibex.py stake "user-authentication" "Implemented JWT-based authentication system"
 ```
 
 This will:
@@ -84,7 +88,7 @@ This will:
 View current changes and Git status:
 
 ```bash
-ibex status
+python run_ibex.py status
 ```
 
 ### View History
@@ -92,7 +96,7 @@ ibex status
 See your semantic change history:
 
 ```bash
-ibex history
+python run_ibex.py history
 ```
 
 ### AI Integration
@@ -102,16 +106,16 @@ ibex history
 Set up your preferred AI provider:
 
 ```bash
-# Use OpenAI GPT-4
+# Use OpenAI GPT-4 (requires API key)
 export OPENAI_API_KEY="your-api-key"
-ibex ai config --provider openai --model gpt-4
+python run_ibex.py ai config --provider openai --model gpt-4
 
-# Use Anthropic Claude
+# Use Anthropic Claude (requires API key)
 export ANTHROPIC_API_KEY="your-api-key"
-ibex ai config --provider claude --model claude-3-sonnet-20240229
+python run_ibex.py ai config --provider claude --model claude-3-sonnet-20240229
 
-# Use local Ollama
-ibex ai config --provider ollama --model codellama
+# Use local Ollama (default, no API key needed)
+python run_ibex.py ai config --provider ollama --model qwen3-coder:30b
 ```
 
 #### Chat with AI
@@ -119,19 +123,19 @@ ibex ai config --provider ollama --model codellama
 Interact directly with AI models:
 
 ```bash
-ibex ai chat "Help me write a Python function to parse JSON"
+python run_ibex.py ai chat "Help me write a Python function to parse JSON"
 ```
 
 #### List Available Providers and Models
 
 ```bash
 # List all available providers
-ibex ai providers
+python run_ibex.py ai providers
 
 # List models for a specific provider
-ibex ai models openai
-ibex ai models claude
-ibex ai models ollama
+python run_ibex.py ai models openai
+python run_ibex.py ai models claude
+python run_ibex.py ai models ollama
 ```
 
 #### Self-Monitoring Features
@@ -185,15 +189,46 @@ When IBEX monitors itself, it provides:
 - **AI Feedback**: Intelligent suggestions for improvements
 - **Category Analysis**: Organized feedback by code type (core, AI, docs, etc.)
 - **Contribution Tracking**: Historical analysis of all changes
-- **Automated Quality Checks**: Python linting, Go builds, dependency checks
+- **Automated Quality Checks**: Python linting, dependency checks, documentation validation
 - **Documentation Monitoring**: Ensures docs stay current with code changes
+
+### Launch TUI (Text User Interface)
+
+IBEX now includes a modern Text User Interface for an enhanced user experience:
+
+```bash
+# Launch TUI using the CLI
+python run_ibex.py tui
+
+# Or use the dedicated launcher
+python run_tui.py
+```
+
+The TUI provides:
+- **Dashboard**: Overview of current status, recent changes, and activity
+- **Stake Points**: Create and manage stake points with AI assistance
+- **AI Chat**: Interactive chat with your configured AI providers
+- **AI Configuration**: Manage AI providers and models
+- **History**: View semantic change history
+- **Self-Monitoring**: Analyze IBEX's own codebase quality
+- **Telemetry**: View development insights and analytics
+
+**Keyboard Shortcuts:**
+- `d` - Dashboard
+- `s` - Stake Points
+- `c` - AI Chat
+- `a` - AI Configuration
+- `h` - History
+- `m` - Self-Monitoring
+- `t` - Telemetry
+- `q` - Quit
 
 ### Start Telemetry Server
 
 Start the telemetry server for development insights:
 
 ```bash
-ibex telemetry-server
+python run_ibex.py telemetry-server
 ```
 
 ## Configuration
@@ -214,13 +249,13 @@ export ANTHROPIC_MODEL="claude-3-sonnet-20240229"  # optional
 
 #### Ollama (Local)
 ```bash
-export OLLAMA_MODEL="codellama"  # optional, defaults to codellama
+export OLLAMA_MODEL="qwen3-coder:30b"  # optional, defaults to qwen3-coder:30b
 ```
 Ollama doesn't require an API key as it runs locally.
 
 #### Default Provider
 ```bash
-export IBEX_AI_PROVIDER="openai"  # or "claude" or "ollama"
+export IBEX_AI_PROVIDER="ollama"  # or "openai" or "claude"
 ```
 
 ### Telemetry
@@ -228,7 +263,7 @@ export IBEX_AI_PROVIDER="openai"  # or "claude" or "ollama"
 Telemetry is optional and runs locally. You can start the telemetry server to collect development insights:
 
 ```bash
-ibex telemetry-server
+python run_ibex.py telemetry-server
 ```
 
 The server runs on `http://localhost:5000` by default.
@@ -240,23 +275,35 @@ ibex/
 ├── .ibex/                 # IBEX data directory
 │   ├── state.json        # Current state and changes
 │   └── semantic.db       # SQLite database for semantic history
-├── main.go               # Go entry point
-├── build.sh              # Build script
-├── requirements.txt      # Python dependencies
-└── python/ibex/          # Embedded Python code
-    ├── ai/               # AI module
-    │   ├── __init__.py   # Unified AI manager
-    │   ├── providers/    # Provider implementations
-    │   │   ├── openai_provider.py
-    │   │   ├── anthropic_provider.py
-    │   │   └── ollama_provider.py
-    │   ├── utils.py      # AI utilities
-    │   └── README.md     # AI documentation
-    ├── cli.py            # Command-line interface
-    ├── core.py           # Core functionality
-    ├── llm.py            # Legacy LLM integration
-    ├── git_integration.py # Git integration
-    └── telemetry.py      # Telemetry functionality
+├── python/               # Python package directory
+│   └── ibex/             # Main IBEX package
+│       ├── __init__.py   # Package initialization
+│       ├── cli.py        # Command-line interface
+│       ├── core.py       # Core functionality
+│       ├── ai/           # AI module
+│       │   ├── __init__.py   # Unified AI manager
+│       │   ├── providers/    # Provider implementations
+│       │   │   ├── openai_provider.py
+│       │   │   ├── anthropic_provider.py
+│       │   │   └── ollama_provider.py
+│       │   ├── utils.py      # AI utilities
+│       │   ├── self_monitor.py # Self-monitoring system
+│       │   ├── contrib_monitor.py # Contribution analysis
+│       │   └── README.md     # AI documentation
+│       ├── git_integration.py # Git integration
+│       ├── telemetry.py      # Telemetry functionality
+│       └── tui.py            # Text User Interface
+├── tests/                # Test suite
+│   ├── __init__.py
+│   ├── debug_ai.py
+│   ├── simple_ollama_test.py
+│   └── test_ollama.py
+├── run_ibex.py          # Main runner script
+├── run_tui.py           # TUI launcher script
+├── start_self_monitoring.py # Self-monitoring launcher
+├── setup.py             # Package installation
+├── .gitignore           # Git ignore rules
+└── README.md            # This file
 ```
 
 ## How It Works
@@ -264,7 +311,7 @@ ibex/
 1. **File Watching**: IBEX uses the `watchdog` library to monitor file system changes
 2. **Change Tracking**: Changes are tracked with file hashes and timestamps
 3. **Git Integration**: Only tracks files that are part of the Git repository
-4. **LLM Analysis**: When creating stake points, IBEX uses OpenAI's API to analyze changes
+4. **AI Analysis**: When creating stake points, IBEX uses your configured AI provider (Ollama, OpenAI, or Claude) to analyze changes
 5. **Semantic Storage**: All semantic information is stored in a local SQLite database
 
 ## Examples
@@ -273,33 +320,33 @@ ibex/
 
 ```bash
 # Start IBEX for a web project
-ibex init --intent "Building a React e-commerce application"
+python run_ibex.py init --intent "Building a React e-commerce application"
 
 # Work on features...
 # IBEX automatically tracks your changes
 
 # Create a stake point when you complete a feature
-ibex stake "product-catalog" "Implemented product listing with search and filtering"
+python run_ibex.py stake "product-catalog" "Implemented product listing with search and filtering"
 
 # Check what you've been working on
-ibex status
+python run_ibex.py status
 
 # View your development history
-ibex history
+python run_ibex.py history
 ```
 
 ### API Development Workflow
 
 ```bash
 # Start IBEX for an API project
-ibex init --intent "Building a REST API with Express.js"
+python run_ibex.py init --intent "Building a REST API with Express.js"
 
 # Work on endpoints...
 # IBEX tracks your changes
 
 # Create stake points for completed endpoints
-ibex stake "user-endpoints" "Implemented CRUD operations for user management"
-ibex stake "auth-middleware" "Added JWT authentication middleware"
+python run_ibex.py stake "user-endpoints" "Implemented CRUD operations for user management"
+python run_ibex.py stake "auth-middleware" "Added JWT authentication middleware"
 ```
 
 ## Contributing

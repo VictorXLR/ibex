@@ -41,8 +41,14 @@ class IBEXSelfMonitor:
         self.watcher = IbexWatcher(str(self.project_root), "IBEX self-monitoring and improvement")
 
         # Initialize AI manager first
-        ai_mgr = self._get_ai_manager()
-        self.monitor = ContributionMonitor(str(self.project_root), ai_mgr)
+        try:
+            ai_mgr = self._get_ai_manager()
+            self.monitor = ContributionMonitor(str(self.project_root), ai_mgr)
+        except Exception as e:
+            print(f"Warning: Failed to initialize AI components: {e}")
+            print("Continuing with basic monitoring capabilities...")
+            ai_mgr = MockAIManager()
+            self.monitor = ContributionMonitor(str(self.project_root), ai_mgr)
 
     def _get_ai_manager(self):
         """Lazy initialization of AI manager"""
@@ -58,10 +64,9 @@ class IBEXSelfMonitor:
         # IBEX-specific file patterns to monitor
         self.important_files = [
             'python/ibex/**/*.py',      # Python code
-            'main.go',                  # Go executable
             'python/requirements.txt',  # Dependencies
             '*.md',                     # Documentation
-            'build.sh',                 # Build scripts
+            'setup.py',                 # Package setup
             '*.yml', '*.yaml',          # Configuration
         ]
 
@@ -165,7 +170,6 @@ Provide 3-5 specific, actionable improvement suggestions for this IBEX contribut
 
         results = {
             "python_linting": self._check_python_quality(),
-            "go_build": self._check_go_build(),
             "dependencies": self._check_dependencies(),
             "documentation": self._check_documentation()
         }
@@ -217,35 +221,7 @@ Provide 3-5 specific, actionable improvement suggestions for this IBEX contribut
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    def _check_go_build(self) -> Dict[str, Any]:
-        """Check if Go code builds successfully"""
 
-        try:
-            result = subprocess.run(
-                ['go', 'build', '-o', '/tmp/ibex_test', 'main.go'],
-                cwd=self.project_root,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-
-            if result.returncode == 0:
-                return {
-                    "status": "success",
-                    "message": "Go build successful",
-                    "output": result.stdout.strip()
-                }
-            else:
-                return {
-                    "status": "failed",
-                    "message": "Go build failed",
-                    "error": result.stderr.strip()
-                }
-
-        except FileNotFoundError:
-            return {"status": "skipped", "message": "Go not installed"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
 
     def _check_dependencies(self) -> Dict[str, Any]:
         """Check if dependencies are properly specified"""

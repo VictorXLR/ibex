@@ -30,7 +30,11 @@ async def start_ibex_self_monitoring():
         contrib_monitor = ContributionMonitor()
 
         # Check AI availability
-        ai_available = self_monitor.ai_manager.is_available()
+        try:
+            ai_available = self_monitor.ai_manager.is_available()
+        except Exception as e:
+            print(f"⚠️  AI check failed: {e}")
+            ai_available = False
         if ai_available:
             print("✅ IBEX Self-Monitoring initialized with AI")
             print("📊 Monitoring capabilities:")
@@ -114,8 +118,14 @@ async def start_ibex_self_monitoring():
 
                         print("   (Run 'python run_ibex.py ai analyze-contribution' for full analysis)")
 
+                elif analysis_result['status'] == 'no_changes':
+                    # Only show this occasionally to avoid spam
+                    pass  # Silent when no changes
+
             except Exception as e:
                 print(f"⚠️  Monitoring error: {e}")
+                import traceback
+                print(f"   Error details: {traceback.format_exc()}")
 
     except KeyboardInterrupt:
         print("\n\n🛑 IBEX Self-Monitoring stopped by user")
