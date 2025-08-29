@@ -87,7 +87,7 @@ class IBEXSelfMonitor:
             self.watcher.stop()
 
     async def analyze_recent_changes(self) -> Dict[str, Any]:
-        """Analyze recent changes to IBEX"""
+        """Analyze recent changes to IBEX with enhanced context"""
 
         try:
             # Get uncommitted changes
@@ -96,21 +96,37 @@ class IBEXSelfMonitor:
             if not uncommitted:
                 return {"status": "no_changes", "message": "No uncommitted changes found"}
 
-            # Analyze the contribution
-            analysis = await self.monitor.analyze_contribution(uncommitted)
+            # Get current project state for better context
+            state = self.watcher.load_state()
+            current_intent = state.get('intent', 'General development')
 
-            # Generate improvement suggestions
+            # Analyze the contribution with enhanced context
+            analysis = await self.monitor.analyze_contribution(uncommitted, f"Intent: {current_intent}")
+
+            # Generate improvement suggestions with enhanced AI analysis
             improvements = await self._generate_improvements(analysis)
 
-            return {
+            # Add additional context to the response
+            enhanced_response = {
                 "status": "analyzed",
                 "analysis": analysis,
                 "improvements": improvements,
-                "files_analyzed": len(uncommitted)
+                "files_analyzed": len(uncommitted),
+                "project_intent": current_intent,
+                "analysis_depth": "enhanced",
+                "context_provided": True,
+                "ai_capabilities": {
+                    "file_content_access": True,
+                    "diff_analysis": True,
+                    "code_quality_assessment": True,
+                    "actionable_feedback": True
+                }
             }
 
+            return enhanced_response
+
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": str(e), "error_details": str(e)}
 
     async def _generate_improvements(self, analysis: Dict[str, Any]) -> List[str]:
         """Generate specific improvement suggestions for IBEX"""
