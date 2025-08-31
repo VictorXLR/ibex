@@ -38,3 +38,4 @@ with open('.ibex/state.json', 'w') as f:
     json.dump(state, f, indent=2)
 
 print(f'Added {len(modified_files)} changes to IBEX state')
+

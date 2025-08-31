@@ -3,6 +3,7 @@ IBEX Self-Monitoring System
 IBEX watches and analyzes its own contributions
 """
 
+import json
 import os
 import asyncio
 from pathlib import Path
