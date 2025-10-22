@@ -18,32 +18,64 @@ ibex/
 │   └── ai/                   # AI provider abstraction layer
 │       ├── __init__.py       # AIManager - unified interface
 │       ├── config.py         # Configuration management
+│       ├── utils.py          # AI utility functions
+│       ├── cli_commands.py   # AI-related CLI commands
+│       ├── self_monitor.py   # Self-monitoring functionality
+│       ├── contrib_monitor.py # Contribution analysis
 │       └── providers/        # Provider implementations
+│           ├── __init__.py
+│           ├── base_provider.py
 │           ├── openai_provider.py
 │           ├── anthropic_provider.py
 │           └── ollama_provider.py
 │
-├── tests/                    # Comprehensive test suite
-│   ├── test_database.py      # Database functionality tests ✨ NEW
-│   ├── test_llm_manager.py   # LLM integration tests ✨ NEW
-│   ├── test_core.py          # Core module tests ✨ NEW
+├── tests/                    # Comprehensive test suite (68+ tests)
+│   ├── test_database.py      # Database functionality tests ✅
+│   ├── test_llm_manager.py   # LLM integration tests ✅
+│   ├── test_core.py          # Core module tests ✅
 │   ├── test_ai_manager.py    # AI manager tests
 │   ├── test_ai_config.py     # Configuration tests
-│   ├── test_error_handling.py
-│   ├── test_cli_commands.py
-│   └── ... (16+ test files)
+│   ├── test_error_handling.py # Error handling tests
+│   ├── test_cli_commands.py  # CLI command tests
+│   ├── test_*.py             # Additional test files
+│   ├── run_tests.py          # Test runner script
+│   ├── requirements-test.txt # Test dependencies
+│   └── README.md             # Test documentation
 │
-├── .ibex/                    # Runtime data (created on init)
+├── scripts/                  # Utility scripts 🧹
+│   ├── populate_changes.py  # Manual state population
+│   ├── start_self_monitoring.py # Self-monitoring starter
+│   └── README.md             # Scripts documentation
+│
+├── examples/                 # Usage examples 🧹
+│   ├── ai_usage_example.py   # AI module usage examples
+│   └── README.md             # Examples documentation
+│
+├── .ibex/                    # Runtime data (created on init, gitignored)
 │   ├── semantic.db           # SQLite database
 │   ├── state.json            # Current watcher state
 │   └── config.yaml           # User configuration
 │
 ├── setup.py                  # Package installation
-├── run_ibex.py               # Entry point script
-├── README.md                 # Project documentation
-├── TESTING.md                # Test documentation ✨ NEW
-└── STRUCTURE.md              # This file ✨ NEW
+├── run_ibex.py               # Main entry point
+├── README.md                 # Project overview
+├── TESTING.md                # Test documentation
+├── STRUCTURE.md              # This file - architecture guide
+├── TEST_SUMMARY.md           # Test results summary
+├── FIXES_SUMMARY.md          # Fixes and improvements log
+└── .gitignore                # Git ignore rules
 ```
+
+🧹 = Recently cleaned and organized
+
+### Directory Purposes
+
+- **`python/ibex/`**: Core application code, well-organized into modules
+- **`tests/`**: Comprehensive test suite with 68+ tests validating all critical functionality
+- **`scripts/`**: Development and utility scripts (not for end-user use)
+- **`examples/`**: Example code demonstrating IBEX usage patterns
+- **`.ibex/`**: Runtime data directory (gitignored, auto-created on init)
+- **Documentation**: Markdown files in root for easy access
 
 ## Core Modules
 
